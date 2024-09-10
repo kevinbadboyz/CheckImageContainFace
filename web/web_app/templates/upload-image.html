@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FaceDetectionApp</title>
+    {% load static %}
+    <script type="text/javascript" src="{% static 'js/webcam.js' %}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+    <h1>Face Detection with WEBCAM JS</h1>
+    <video id="video_input" width="640" height="480" autoplay></video><hr>
+    <input type="button" value="Capture Image" onclick="take_snapshot()">
+    <input type="button" value="Save Image" onclick="save_snapshot()">
+    <hr>
+    <div id="canvas_output"></div>
+    <script>
+        window.addEventListener("load", function startCamera(){
+            navigator.mediaDevices.getUserMedia({
+                video : true,
+                audio : false
+            }).then(stream => {
+                const videoElement = document.getElementById("video_input");
+                videoElement.srcObject = stream;
+            }).catch(err => {
+                console.error("Error accessing camera " + err);
+                
+            })
+        });
+    </script>
+    <script>
+        let imageArr = [];
+        let imageDst = [];
+
+        Webcam.set({
+            width: 320,
+            height: 240,
+            dest_width: 640,
+            dest_height: 480,
+            image_format: 'jpeg',
+            jpeg_quality: 100,
+            force_flash: false
+        })
+        Webcam.attach("#video_input");
+        console.log(Webcam);
+
+        function take_snapshot(){
+            // Take snapshot and get image data
+            Webcam.snap(function (data_uri){
+                // Display snapshot result to canvas
+                document.getElementById("canvas_output").innerHTML = '<img src="' + data_uri + '"/>';
+                imageArr.push(data_uri);                 
+                console.log(imageArr);                                             
+            });
+        }
+
+        function save_snapshot(){
+            let saveData = sendData();
+            console.log(saveData);
+            
+        }
+
+        async function sendData() {
+            json = null;
+            await fetch('http://127.0.0.1:8000/save-image', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body:JSON.stringify(imageArr)
+            }).then((response)=> response.json())
+            .then((responseJSON)=> {
+                json = responseJSON;
+                // window.location.href = 'http://127.0.0.1:8000/'                
+
+                let timerInterval;
+                Swal.fire({
+                title: "Gambar anda berhasil disimpan",
+                // html: "I will close in <b></b> milliseconds.",
+                timer: 2000,
+                timerProgressBar: true,
+                didOpen: () => {
+                    Swal.showLoading();
+                    const timer = Swal.getPopup().querySelector("b");
+                    timerInterval = setInterval(() => {
+                    timer.textContent = `${Swal.getTimerLeft()}`;
+                    }, 100);
+                },
+                willClose: () => {
+                    clearInterval(timerInterval);
+                }
+                }).then((result) => {
+                    /* Read more about handling dismissals below */
+                    if (result.dismiss === Swal.DismissReason.timer) {
+                        window.location.href = 'http://127.0.0.1:8000/'
+                    }
+                });
+                
+                return json;
+            }).catch(err => {
+                json = err;
+                Swal.fire({
+                    position: "top-center",
+                    icon: "error",
+                    title: err,
+                    showConfirmButton: false,
+                    timer: 1500                    
+                });
+                return json;
+            });
+            // Stop capture snapshot
+            Webcam.reset();
+        }
+    </script>
+</body>
+</html>
